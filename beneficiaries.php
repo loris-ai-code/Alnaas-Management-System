@@ -8,8 +8,12 @@ if (!isset($_SESSION['username'])) {
     exit();
 }
 
+// Restrict Donors from modifying beneficiaries
+$role = $_SESSION['role'] ?? 'Donor';
+$canEdit = ($role !== 'Donor');
+
 // ADD Beneficiary
-if (isset($_POST['add_beneficiary'])) {
+if ($canEdit && isset($_POST['add_beneficiary'])) {
     $stmt = $conn->prepare("INSERT INTO beneficiaries (first_name, last_name, gender, dob, phone) VALUES (?, ?, ?, ?, ?)");
     $stmt->bind_param("sssss", $_POST['first_name'], $_POST['last_name'], $_POST['gender'], $_POST['dob'], $_POST['phone']);
     $stmt->execute();
@@ -19,7 +23,7 @@ if (isset($_POST['add_beneficiary'])) {
 }
 
 // UPDATE Beneficiary
-if (isset($_POST['update_beneficiary'])) {
+if ($canEdit && isset($_POST['update_beneficiary'])) {
     $stmt = $conn->prepare("UPDATE beneficiaries SET first_name=?, last_name=?, gender=?, dob=?, phone=? WHERE id=?");
     $stmt->bind_param("sssssi", $_POST['first_name'], $_POST['last_name'], $_POST['gender'], $_POST['dob'], $_POST['phone'], $_POST['id']);
     $stmt->execute();
@@ -29,7 +33,7 @@ if (isset($_POST['update_beneficiary'])) {
 }
 
 // DELETE Beneficiary
-if (isset($_GET['delete'])) {
+if ($canEdit && isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
     $stmt = $conn->prepare("DELETE FROM beneficiaries WHERE id=?");
     $stmt->bind_param("i", $id);
@@ -60,14 +64,13 @@ body { background:#f4f6fa; font-family:'Poppins', sans-serif; color:#222; transi
 </head>
 <body>
 
-<!-- Header -->
 <?php include 'header.php'; ?>
 
-<!-- Main Content -->
 <div class="main-content">
   <h2 class="fw-bold mb-4">Beneficiaries</h2>
 
-  <!-- Add Beneficiary Form -->
+  <!-- Add Beneficiary Form (Admin/Staff Only) -->
+  <?php if($canEdit): ?>
   <div class="card p-4 mb-4">
     <h5>Add New Beneficiary</h5>
     <form method="POST">
@@ -87,6 +90,7 @@ body { background:#f4f6fa; font-family:'Poppins', sans-serif; color:#222; transi
       </div>
     </form>
   </div>
+  <?php endif; ?>
 
   <!-- Beneficiaries Table -->
   <div class="card p-4">
@@ -101,7 +105,7 @@ body { background:#f4f6fa; font-family:'Poppins', sans-serif; color:#222; transi
             <th>DOB</th>
             <th>Phone</th>
             <th>Registered</th>
-            <th class="text-center">Actions</th>
+            <?php if($canEdit): ?><th class="text-center">Actions</th><?php endif; ?>
           </tr>
         </thead>
         <tbody>
@@ -113,15 +117,18 @@ body { background:#f4f6fa; font-family:'Poppins', sans-serif; color:#222; transi
             <td><?= htmlspecialchars($row['dob']) ?></td>
             <td><?= htmlspecialchars($row['phone']) ?></td>
             <td><?= htmlspecialchars($row['created_at']) ?></td>
+            <?php if($canEdit): ?>
             <td class="text-center">
               <div class="d-flex justify-content-center gap-2">
                 <button class="btn btn-sm btn-info text-white btn-action" data-bs-toggle="modal" data-bs-target="#editModal<?= $row['id'] ?>"><i class="bi bi-pencil-square"></i> Edit</button>
                 <a href="?delete=<?= $row['id'] ?>" class="btn btn-sm btn-danger btn-action" onclick="return confirm('Delete this beneficiary?')"><i class="bi bi-trash"></i> Delete</a>
               </div>
             </td>
+            <?php endif; ?>
           </tr>
 
-          <!-- Edit Modal -->
+          <!-- Edit Modal (Admin/Staff Only) -->
+          <?php if($canEdit): ?>
           <div class="modal fade" id="editModal<?= $row['id'] ?>" tabindex="-1">
             <div class="modal-dialog modal-dialog-centered">
               <div class="modal-content">
@@ -164,6 +171,7 @@ body { background:#f4f6fa; font-family:'Poppins', sans-serif; color:#222; transi
               </div>
             </div>
           </div>
+          <?php endif; ?>
           <?php endwhile; ?>
         </tbody>
       </table>
@@ -172,7 +180,6 @@ body { background:#f4f6fa; font-family:'Poppins', sans-serif; color:#222; transi
 </div>
 
 <?php include 'footer.php'; ?>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

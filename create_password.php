@@ -5,9 +5,6 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// -----------------------------
-// Step 1: Handle Password Reset Request
-// -----------------------------
 if(isset($_POST['request_reset'])) {
     $email = trim($_POST['email']);
 
@@ -41,9 +38,7 @@ if(isset($_POST['request_reset'])) {
     exit();
 }
 
-// -----------------------------
-// Step 2: Handle Password Change via Token
-// -----------------------------
+// handling password change
 if(isset($_GET['token'])) {
     $token = $_GET['token'];
 
@@ -85,9 +80,7 @@ if(isset($_GET['token'])) {
     exit();
 }
 
-// -----------------------------
-// Step 3: Show Forgot Password Form
-// -----------------------------
+// show forgot password
 ?>
 <h2>Forgot Password?</h2>
 <form method="POST">

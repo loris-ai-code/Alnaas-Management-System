@@ -1,7 +1,13 @@
 <?php
-session_start();
+// ALL LOGIC AND REDIRECTS BEFORE INCLUDING HEADER
 include __DIR__.'/alnaasDB.php';
 
+// Start session only if not already started
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Authentication check - redirect BEFORE including header.php
 if (!isset($_SESSION['username'])) {
     header("Location: alnaasLogin.php");
     exit();
@@ -10,25 +16,29 @@ if (!isset($_SESSION['username'])) {
 $msg = '';
 $role_options = ['Admin','Staff','Donor'];
 
-//  Register user (Admin only)
+// Register user (Admin only)
 if (isset($_POST['register_user']) && $_SESSION['role'] == 'Admin') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $email = trim($_POST['email'] ?? '');
     $role = in_array($_POST['role'] ?? '', $role_options) ? $_POST['role'] : 'Staff';
 
-    if ($username === '' || $password === '') $msg = 'Username and password are required.';
-    else {
+    if ($username === '' || $password === '') {
+        $msg = 'Username and password are required.';
+    } else {
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
         $stmt->bind_param('ssss', $username, $email, $hash, $role);
-        if ($stmt->execute()) $msg = 'User created successfully.';
-        else $msg = ' Error: '.$stmt->error;
+        if ($stmt->execute()) {
+            $msg = 'User created successfully.';
+        } else {
+            $msg = 'Error: '.$stmt->error;
+        }
         $stmt->close();
     }
 }
 
-//  Delete user (Admin only)
+// Delete user (Admin only)
 if (isset($_GET['delete']) && $_SESSION['role'] == 'Admin') {
     $id = intval($_GET['delete']);
     $conn->query("DELETE FROM users WHERE ptpID=$id");
@@ -38,137 +48,217 @@ if (isset($_GET['delete']) && $_SESSION['role'] == 'Admin') {
 
 // Fetch users
 $users = $conn->query("SELECT ptpID, name, email, role, created_at FROM users ORDER BY created_at ASC");
+
+// NOW include header
+$pageTitle = "Users - ALNAAS";
+include 'header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Users - ALNAAS</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
 <style>
-body { background:#f4f6fa; font-family:'Poppins', sans-serif; }
-.sidebar {
-    height: 100vh; width: 250px; position: fixed; top: 0; left: 0;
-    background: linear-gradient(180deg, #003087, #0059b3);
-    color: white; padding-top: 20px;
-    border-radius: 0 15px 15px 0;
+.main-content { padding: 20px; margin-top: 70px; }
+
+.page-header { 
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-.sidebar a { display:block; padding:12px 25px; color:#ddd; text-decoration:none; border-radius:8px; margin:5px 10px; transition:all 0.3s; }
-.sidebar a:hover, .sidebar a.active { background:rgba(255,255,255,0.2); color:#fff; }
-.main-content { margin-left:260px; padding:30px; }
-.card { border:none; border-radius:15px; box-shadow:0 6px 20px rgba(0,0,0,0.1); background:white; }
-.icon-btn { border:none; background:transparent; color:#007bff; font-size:1.2rem; cursor:pointer; }
-.icon-btn:hover { color:#0056b3; }
-.icon-delete { color:#dc3545; }
-.icon-delete:hover { color:#a71d2a; }
+
+.page-header h2 { margin: 0; font-weight: 600; }
+
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: none;
+    margin-bottom: 20px;
+    padding: 25px;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.2s;
+    border-radius: 6px;
+}
+
+.icon-btn:hover {
+    background: #f0f0f0;
+}
+
+.icon-btn i {
+    color: #667eea;
+}
+
+.icon-delete i {
+    color: #dc3545;
+}
+
+.icon-delete:hover {
+    background: #fee;
+}
+
+.table thead th {
+    background: #667eea;
+    color: white;
+    border: none;
+    font-weight: 500;
+}
 </style>
-</head>
-<body>
 
-<!-- Sidebar -->
-<div class="sidebar">
-  <h3 class="text-center">ALNAAS</h3>
-  <a href="alnaasDash.php">🔙Dashboard</a>
- 
-</div>
-
-<!-- Main Content -->
 <div class="main-content">
-  <h2 class="fw-bold mb-4">Users</h2>
-
-  <?php if($msg): ?>
-    <div class="alert alert-info"><?php echo htmlspecialchars($msg); ?></div>
-  <?php endif; ?>
-
-  <!-- Add User Form -->
-  <?php if ($_SESSION['role'] == 'Admin'): ?>
-  <div class="card p-4 mb-4">
-    <h5>Add New User</h5>
-    <form method="POST">
-      <div class="row g-2">
-        <div class="col-md-3"><input name="username" class="form-control" placeholder="Username" required></div>
-        <div class="col-md-3"><input name="email" type="email" class="form-control" placeholder="Email"></div>
-        <div class="col-md-3"><input name="password" type="password" class="form-control" placeholder="Password" required></div>
-        <div class="col-md-2">
-          <select name="role" class="form-select">
-            <?php foreach($role_options as $r): ?>
-              <option value="<?php echo htmlspecialchars($r); ?>"><?php echo htmlspecialchars($r); ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="col-md-1"><button class="btn btn-primary w-100" name="register_user">Add</button></div>
-      </div>
-    </form>
-  </div>
-  <?php endif; ?>
-
-  <!-- Users Table -->
-  <div class="card p-4">
-    <h5>All Users</h5>
-    <div class="table-responsive">
-      <table class="table table-hover table-bordered align-middle">
-        <thead class="table-primary">
-          <tr>
-            <th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Created</th>
-            <?php if ($_SESSION['role'] == 'Admin'): ?><th class="text-center">Action</th><?php endif; ?>
-          </tr>
-        </thead>
-        <tbody>
-          <?php if($users->num_rows > 0): while($u = $users->fetch_assoc()): ?>
-          <tr>
-            <td><?= $u['ptpID'] ?></td>
-            <td><?= htmlspecialchars($u['name']) ?></td>
-            <td><?= htmlspecialchars($u['email']) ?></td>
-            <td><?= htmlspecialchars($u['role']) ?></td>
-            <td><?= htmlspecialchars($u['created_at']) ?></td>
-            <?php if ($_SESSION['role'] == 'Admin'): ?>
-            <td class="text-center">
-              <button class="icon-btn" data-bs-toggle="modal" data-bs-target="#editModal<?= $u['ptpID'] ?>"><i class="bi bi-pencil-square"></i></button>
-              <a href="?delete=<?= $u['ptpID'] ?>" class="icon-btn icon-delete" onclick="return confirm('Delete this user?')"><i class="bi bi-trash"></i></a>
-            </td>
-            <?php endif; ?>
-          </tr>
-
-          <!-- Edit Modal -->
-          <div class="modal fade" id="editModal<?= $u['ptpID'] ?>" tabindex="-1">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <form method="POST" action="update_user.php">
-                  <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">Edit User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                  </div>
-                  <div class="modal-body">
-                    <input type="hidden" name="id" value="<?= $u['ptpID'] ?>">
-                    <div class="mb-3"><label>Name</label><input type="text" name="name" value="<?= htmlspecialchars($u['name']) ?>" class="form-control"></div>
-                    <div class="mb-3"><label>Email</label><input type="email" name="email" value="<?= htmlspecialchars($u['email']) ?>" class="form-control"></div>
-                    <div class="mb-3">
-                      <label>Role</label>
-                      <select name="role" class="form-select">
-                        <?php foreach($role_options as $r): ?>
-                          <option value="<?= $r ?>" <?= $u['role']==$r?'selected':'' ?>><?= $r ?></option>
-                        <?php endforeach; ?>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">Save</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-
-          <?php endwhile; else: ?>
-            <tr><td colspan="6" class="text-center">No users found.</td></tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
+    <div class="page-header">
+        <h2><i class="bi bi-people-fill"></i> Users Management</h2>
+        <p style="margin: 8px 0 0 0; opacity: 0.95; font-size: 14px;">Manage system users and permissions</p>
     </div>
-  </div>
+
+    <?php if($msg): ?>
+        <div class="alert alert-info alert-dismissible fade show">
+            <?php echo htmlspecialchars($msg); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <!-- Add User Form -->
+    <?php if ($_SESSION['role'] == 'Admin'): ?>
+    <div class="card">
+        <h5 class="mb-3"><i class="bi bi-person-plus"></i> Add New User</h5>
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Username</label>
+                    <input name="username" class="form-control" placeholder="Enter username" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Email</label>
+                    <input name="email" type="email" class="form-control" placeholder="Enter email">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Password</label>
+                    <input name="password" type="password" class="form-control" placeholder="Enter password" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Role</label>
+                    <select name="role" class="form-select">
+                        <?php foreach($role_options as $r): ?>
+                            <option value="<?php echo htmlspecialchars($r); ?>"><?php echo htmlspecialchars($r); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" name="register_user">
+                        <i class="bi bi-plus-lg"></i> Add
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <?php endif; ?>
+
+    <!-- Users Table -->
+    <div class="card">
+        <h5 class="mb-3"><i class="bi bi-list-ul"></i> All Users</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 8%;">ID</th>
+                        <th style="width: 22%;">Name</th>
+                        <th style="width: 25%;">Email</th>
+                        <th style="width: 15%;">Role</th>
+                        <th style="width: 20%;">Created</th>
+                        <?php if ($_SESSION['role'] == 'Admin'): ?>
+                            <th style="width: 10%;" class="text-center">Actions</th>
+                        <?php endif; ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if($users->num_rows > 0): 
+                        while($u = $users->fetch_assoc()): ?>
+                    <tr>
+                        <td><strong><?= $u['ptpID'] ?></strong></td>
+                        <td><?= htmlspecialchars($u['name']) ?></td>
+                        <td><?= htmlspecialchars($u['email']) ?></td>
+                        <td>
+                            <span class="badge bg-primary"><?= htmlspecialchars($u['role']) ?></span>
+                        </td>
+                        <td><?= date('M d, Y', strtotime($u['created_at'])) ?></td>
+                        <?php if ($_SESSION['role'] == 'Admin'): ?>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center gap-1">
+                                <button class="icon-btn" data-bs-toggle="modal" data-bs-target="#editModal<?= $u['ptpID'] ?>" title="Edit User">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <a href="?delete=<?= $u['ptpID'] ?>" class="icon-btn icon-delete" onclick="return confirm('Delete this user?')" title="Delete User">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                        <?php endif; ?>
+                    </tr>
+
+                    <!-- Edit Modal -->
+                    <?php if ($_SESSION['role'] == 'Admin'): ?>
+                    <div class="modal fade" id="editModal<?= $u['ptpID'] ?>" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <form method="POST" action="update_user.php">
+                                    <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                        <h5 class="modal-title">
+                                            <i class="bi bi-pencil-square"></i> Edit User #<?= $u['ptpID'] ?>
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <input type="hidden" name="id" value="<?= $u['ptpID'] ?>">
+                                        <div class="mb-3">
+                                            <label class="form-label">Name</label>
+                                            <input type="text" name="name" value="<?= htmlspecialchars($u['name']) ?>" class="form-control" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Email</label>
+                                            <input type="email" name="email" value="<?= htmlspecialchars($u['email']) ?>" class="form-control">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Role</label>
+                                            <select name="role" class="form-select" required>
+                                                <?php foreach($role_options as $r): ?>
+                                                    <option value="<?= $r ?>" <?= $u['role']==$r?'selected':'' ?>><?= $r ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-check-lg"></i> Save Changes
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php 
+                        endwhile;
+                    else: ?>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox" style="font-size: 48px; opacity: 0.3;"></i>
+                                <p class="mt-2">No users found.</p>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

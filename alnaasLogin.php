@@ -9,7 +9,7 @@ include 'alnaasDB.php';
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login | ALNAAS System</title>
 <style>
-/*  Sliding Background Images (Linear slide left-to-right) */
+
 body {
     font-family: 'Poppins', sans-serif;
     display: flex;
